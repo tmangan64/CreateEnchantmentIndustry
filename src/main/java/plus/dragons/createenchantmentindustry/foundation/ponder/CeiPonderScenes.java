@@ -2,7 +2,6 @@ package plus.dragons.createenchantmentindustry.foundation.ponder;
 
 import com.simibubi.create.AllItems;
 import com.tterrag.registrate.util.entry.ItemProviderEntry;
-import com.tterrag.registrate.util.entry.RegistryEntry;
 import net.createmod.ponder.api.registration.PonderSceneRegistrationHelper;
 import net.minecraft.resources.ResourceLocation;
 import plus.dragons.createenchantmentindustry.entry.CeiBlocks;
@@ -11,7 +10,7 @@ import plus.dragons.createenchantmentindustry.entry.CeiItems;
 public class CeiPonderScenes {
 
     public static void register(PonderSceneRegistrationHelper<ResourceLocation> helper) {
-        PonderSceneRegistrationHelper<ItemProviderEntry<?>> HELPER = helper.withKeyFunction(RegistryEntry::getId);
+        PonderSceneRegistrationHelper<ItemProviderEntry<?, ?>> HELPER = helper.withKeyFunction(ItemProviderEntry::getId);
 
         HELPER.forComponents(CeiBlocks.DISENCHANTER)
                 .addStoryBoard("disenchant", EnchantmentScenes::disenchant, CeiPonderTags.EXPERIENCE);

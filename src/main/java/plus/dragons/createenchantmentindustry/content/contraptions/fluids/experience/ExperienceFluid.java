@@ -2,23 +2,24 @@ package plus.dragons.createenchantmentindustry.content.contraptions.fluids.exper
 
 import com.simibubi.create.content.fluids.VirtualFluid;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.ExperienceOrb;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
-import net.minecraftforge.common.MinecraftForge;
-import net.minecraftforge.event.entity.player.PlayerXpEvent;
-import net.minecraftforge.fluids.ForgeFlowingFluid;
+import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.event.entity.player.PlayerXpEvent;
+import net.neoforged.neoforge.fluids.BaseFlowingFluid;
 
 import javax.annotation.Nullable;
 
 public class ExperienceFluid extends VirtualFluid {
-    public static ExperienceFluid createSource(ForgeFlowingFluid.Properties properties) {
+    public static ExperienceFluid createSource(BaseFlowingFluid.Properties properties) {
         return new ExperienceFluid(properties,true);
     }
 
-    public static ExperienceFluid createFlowing(ForgeFlowingFluid.Properties properties) {
+    public static ExperienceFluid createFlowing(BaseFlowingFluid.Properties properties) {
         return new ExperienceFluid(properties,false);
     }
 
@@ -49,13 +50,16 @@ public class ExperienceFluid extends VirtualFluid {
     
     public void awardOrDrop(@Nullable Player player, ServerLevel level, Vec3 pos, Vec3 speed, int amount) {
         var orb = this.convertToOrb(level, pos.x, pos.y, pos.z, amount);
-        if (player == null || MinecraftForge.EVENT_BUS.post(new PlayerXpEvent.PickupXp(player, orb))) {
+        if (player == null || NeoForge.EVENT_BUS.post(new PlayerXpEvent.PickupXp(player, orb)).isCanceled()) {
             if (!ExperienceOrb.tryMergeToExisting(level, pos, orb.value)) {
                 orb.setDeltaMovement(speed);
                 level.addFreshEntity(orb);
             }
         } else {
-            int left = orb.repairPlayerItems(player, orb.value);
+            // In 1.21, repairPlayerItems requires ServerPlayer
+            int left = (player instanceof ServerPlayer serverPlayer)
+                    ? orb.repairPlayerItems(serverPlayer, orb.value)
+                    : orb.value;
             if (left > 0) {
                 player.giveExperiencePoints(left);
                 this.applyAdditionalEffects(player, left);

@@ -5,14 +5,14 @@ import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.Level;
-import net.minecraftforge.fluids.ForgeFlowingFluid;
+import net.neoforged.neoforge.fluids.BaseFlowingFluid;
 
 public class HyperExperienceFluid extends ExperienceFluid {
-    public static HyperExperienceFluid createSource(ForgeFlowingFluid.Properties properties) {
+    public static HyperExperienceFluid createSource(BaseFlowingFluid.Properties properties) {
         return new HyperExperienceFluid(properties,true);
     }
 
-    public static HyperExperienceFluid createFlowing(ForgeFlowingFluid.Properties properties) {
+    public static HyperExperienceFluid createFlowing(BaseFlowingFluid.Properties properties) {
         return new HyperExperienceFluid(properties,false);
     }
 

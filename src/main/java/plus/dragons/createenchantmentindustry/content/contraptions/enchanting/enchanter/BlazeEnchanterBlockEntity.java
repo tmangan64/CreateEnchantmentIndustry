@@ -19,6 +19,7 @@ import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.HolderLookup;
 import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
@@ -36,15 +37,14 @@ import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.item.enchantment.EnchantmentHelper;
+import net.minecraft.world.item.enchantment.ItemEnchantments;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
-import net.minecraftforge.common.capabilities.Capability;
-import net.minecraftforge.common.capabilities.ForgeCapabilities;
-import net.minecraftforge.common.util.LazyOptional;
-import net.minecraftforge.fluids.FluidStack;
-import net.minecraftforge.items.ItemHandlerHelper;
-import org.antlr.v4.runtime.misc.NotNull;
+import net.neoforged.neoforge.capabilities.Capabilities;
+import net.neoforged.neoforge.fluids.FluidStack;
+import net.neoforged.neoforge.fluids.capability.IFluidHandler;
+import net.neoforged.neoforge.items.IItemHandler;
 import plus.dragons.createenchantmentindustry.content.contraptions.fluids.FilteringFluidTankBehaviour;
 import plus.dragons.createenchantmentindustry.content.contraptions.fluids.experience.ExperienceFluid;
 import plus.dragons.createenchantmentindustry.entry.CeiContainerTypes;
@@ -69,7 +69,7 @@ public class BlazeEnchanterBlockEntity extends SmartBlockEntity implements IHave
     TransportedItemStack heldItem;
     ItemStack targetItem = new ItemStack(CeiItems.ENCHANTING_GUIDE.get());
     int processingTicks;
-    Map<Direction, LazyOptional<EnchantingItemHandler>> itemHandlers;
+    Map<Direction, EnchantingItemHandler> itemHandlers;
     boolean sendParticles;
     LerpedFloat headAnimation;
     LerpedFloat headAngle;
@@ -84,8 +84,7 @@ public class BlazeEnchanterBlockEntity extends SmartBlockEntity implements IHave
         super(type, pos, state);
         itemHandlers = new IdentityHashMap<>();
         for (Direction d : Iterate.horizontalDirections) {
-            EnchantingItemHandler enchantingItemHandler = new EnchantingItemHandler(this, d);
-            itemHandlers.put(d, LazyOptional.of(() -> enchantingItemHandler));
+            itemHandlers.put(d, new EnchantingItemHandler(this, d));
         }
         headAnimation = LerpedFloat.linear();
         headAngle = LerpedFloat.angular();
@@ -351,7 +350,7 @@ public class BlazeEnchanterBlockEntity extends SmartBlockEntity implements IHave
             return true;
 
         boolean hyper = hyper();
-        Pair<Enchantment, Integer> entry = Enchanting.getValidEnchantment(heldItem.stack, targetItem, hyper);
+        Pair<net.minecraft.core.Holder<Enchantment>, Integer> entry = Enchanting.getValidEnchantment(heldItem.stack, targetItem, hyper);
         if (entry == null)
             return false;
 
@@ -373,7 +372,8 @@ public class BlazeEnchanterBlockEntity extends SmartBlockEntity implements IHave
         }
 
         // Advancement
-        if (EnchantmentHelper.getEnchantments(heldItem.stack).isEmpty())
+        ItemEnchantments enchantments = EnchantmentHelper.getEnchantmentsForCrafting(heldItem.stack);
+        if (enchantments.isEmpty())
             award(CeiAdvancements.FIRST_ORDER.asCreateAdvancement());
         else
             award(CeiAdvancements.ADDITIONAL_ORDER.asCreateAdvancement());
@@ -403,8 +403,8 @@ public class BlazeEnchanterBlockEntity extends SmartBlockEntity implements IHave
             return inserted;
 
         if (inserted.getCount() > 1 && Enchanting.getValidEnchantment(inserted, targetItem, hyper()) != null) {
-            returned = ItemHandlerHelper.copyStackWithSize(inserted, inserted.getCount() - 1);
-            inserted = ItemHandlerHelper.copyStackWithSize(inserted, 1);
+            returned = inserted.copyWithCount(inserted.getCount() - 1);
+            inserted = inserted.copyWithCount(1);
         }
 
         if (simulate)
@@ -430,13 +430,6 @@ public class BlazeEnchanterBlockEntity extends SmartBlockEntity implements IHave
     public void setHeldItem(TransportedItemStack heldItem, Direction insertedFrom) {
         this.heldItem = heldItem;
         this.heldItem.insertedFrom = insertedFrom;
-    }
-
-    @Override
-    public void invalidate() {
-        super.invalidate();
-        for (LazyOptional<EnchantingItemHandler> lazyOptional : itemHandlers.values())
-            lazyOptional.invalidate();
     }
 
     @Override
@@ -466,53 +459,51 @@ public class BlazeEnchanterBlockEntity extends SmartBlockEntity implements IHave
     }
 
     @Override
-    public void write(CompoundTag compoundTag, boolean clientPacket) {
-        super.write(compoundTag, clientPacket);
+    public void write(CompoundTag compoundTag, HolderLookup.Provider registries, boolean clientPacket) {
         compoundTag.putInt("ProcessingTicks", processingTicks);
-        compoundTag.put("TargetItem", targetItem.serializeNBT());
+        compoundTag.put("TargetItem", targetItem.saveOptional(registries));
         compoundTag.putBoolean("Goggles", goggles);
         if (heldItem != null)
-            compoundTag.put("HeldItem", heldItem.serializeNBT());
+            compoundTag.put("HeldItem", heldItem.serializeNBT(registries));
         if (sendParticles && clientPacket) {
             compoundTag.putBoolean("SpawnParticles", true);
             sendParticles = false;
         }
+        super.write(compoundTag, registries, clientPacket);
     }
 
     @Override
-    public void writeSafe(CompoundTag tag) {
-        super.writeSafe(tag);
-        tag.put("TargetItem", new ItemStack(CeiItems.ENCHANTING_GUIDE.get()).serializeNBT());
+    public void writeSafe(CompoundTag tag, HolderLookup.Provider registries) {
+        super.writeSafe(tag, registries);
+        tag.put("TargetItem", new ItemStack(CeiItems.ENCHANTING_GUIDE.get()).saveOptional(registries));
         tag.putBoolean("Goggles", goggles);
     }
 
     @Override
-    protected void read(CompoundTag compoundTag, boolean clientPacket) {
-        super.read(compoundTag, clientPacket);
+    protected void read(CompoundTag compoundTag, HolderLookup.Provider registries, boolean clientPacket) {
+        super.read(compoundTag, registries, clientPacket);
         heldItem = null;
         processingTicks = compoundTag.getInt("ProcessingTicks");
-        targetItem = ItemStack.of(compoundTag.getCompound("TargetItem"));
+        targetItem = ItemStack.parseOptional(registries, compoundTag.getCompound("TargetItem"));
         goggles = compoundTag.getBoolean("Goggles");
         if (compoundTag.contains("HeldItem"))
-            heldItem = TransportedItemStack.read(compoundTag.getCompound("HeldItem"));
+            heldItem = TransportedItemStack.read(compoundTag.getCompound("HeldItem"), registries);
         if (!clientPacket)
             return;
         if (compoundTag.contains("SpawnParticles"))
             spawnEnchantParticles();
     }
 
-    @Override
-    @NotNull
-    public <T> LazyOptional<T> getCapability(Capability<T> capability, @Nullable Direction side) {
-        if (side != null && side.getAxis()
-                .isHorizontal() && isItemHandlerCap(capability))
-            return itemHandlers.get(side)
-                    .cast();
+    @Nullable
+    public IItemHandler getItemHandler(Direction side) {
+        if (side != null && side.getAxis().isHorizontal())
+            return itemHandlers.get(side);
+        return null;
+    }
 
-        if ((side == Direction.DOWN || side == null) && isFluidHandlerCap(capability))
-            return internalTank.getCapability()
-                    .cast();
-        return super.getCapability(capability, side);
+    @Nullable
+    public IFluidHandler getFluidHandler() {
+        return internalTank.getCapability();
     }
 
     @Override
@@ -522,7 +513,7 @@ public class BlazeEnchanterBlockEntity extends SmartBlockEntity implements IHave
             EnchantmentEntry entry = Enchanting.getTargetEnchantment(targetItem, hyper());
             if (entry != null) {
                 tooltip.add(Component.literal("     ")
-                        .append(entry.getFirst().getFullname(entry.getSecond())));
+                        .append(Enchantment.getFullname(entry.getFirst(), entry.getSecond())));
                 if (!entry.valid())
                     tooltip.add(Component.literal("     ")
                             .append(LANG.translate("gui.goggles.blaze_enchanter.invalid_target").component())
@@ -542,7 +533,8 @@ public class BlazeEnchanterBlockEntity extends SmartBlockEntity implements IHave
                 }
             }
         }
-        containedFluidTooltip(tooltip, isPlayerSneaking, getCapability(ForgeCapabilities.FLUID_HANDLER));
+        var handler = level.getCapability(Capabilities.FluidHandler.BLOCK, getBlockPos(), getBlockState(), this, null);
+        containedFluidTooltip(tooltip, isPlayerSneaking, handler);
         return true;
     }
 

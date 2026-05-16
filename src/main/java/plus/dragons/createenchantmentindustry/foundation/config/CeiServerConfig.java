@@ -2,10 +2,10 @@ package plus.dragons.createenchantmentindustry.foundation.config;
 
 import net.createmod.catnip.config.ConfigBase;
 import net.createmod.catnip.config.ui.ConfigAnnotations;
-import net.minecraftforge.common.ForgeConfigSpec;
+import net.neoforged.neoforge.common.ModConfigSpec;
 
 public class CeiServerConfig extends ConfigBase {
-    
+
     public final ConfigBase.ConfigInt disenchanterTankCapacity = i(1000, 0,
         "disenchanterTankCapacity",
         Comments.disenchanterTankCapacity,
@@ -54,9 +54,9 @@ public class CeiServerConfig extends ConfigBase {
     public final ConfigBool copyingWrittenBookAlwaysGetOriginalVersion = b(true,
             "copyingWrittenBookAlwaysGetOriginalVersion",
             Comments.copyingWrittenBookAlwaysGetOriginalVersion);
-    
+
     @Override
-    public void registerAll(ForgeConfigSpec.Builder builder) {
+    public void registerAll(ModConfigSpec.Builder builder) {
         super.registerAll(builder);
     }
 
@@ -64,9 +64,9 @@ public class CeiServerConfig extends ConfigBase {
     public String getName() {
         return "server";
     }
-    
+
     private static class Comments {
-    
+
         static String disenchanterTankCapacity =
             "The Tank Capacity of the Disenchanter";
         static String copierTankCapacity =
@@ -86,7 +86,7 @@ public class CeiServerConfig extends ConfigBase {
         static String crushingWheelDropExpRate = "The probability of dropping Experience Nugget after killing a creature on the Crushing Wheel";
         static String copyingWrittenBookAlwaysGetOriginalVersion =
                 "Whether or not copying a written book always get original version. Setting it to false let you always get copy version of the book.";
-        
+
     }
 
 }

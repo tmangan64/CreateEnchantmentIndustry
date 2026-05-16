@@ -6,8 +6,8 @@ import com.tterrag.registrate.util.entry.ItemProviderEntry;
 import com.tterrag.registrate.util.nullness.NonNullUnaryOperator;
 import net.minecraft.advancements.Advancement;
 import net.minecraft.advancements.AdvancementRewards;
-import net.minecraft.advancements.CriterionTriggerInstance;
-import net.minecraft.advancements.FrameType;
+import net.minecraft.advancements.AdvancementType;
+import net.minecraft.advancements.Criterion;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
@@ -37,15 +37,15 @@ public class AdvancementHolder {
     protected final AdvancementHolder parent;
     @Nullable
     protected final CreateAdvancement createAdvancement;
-    protected Advancement advancement;
-    
+    protected net.minecraft.advancements.AdvancementHolder advancement;
+
     protected AdvancementHolder(String modid, String id, Advancement.Builder builder, @Nullable AdvancementHolder parent, boolean builtin, String title, String description, TriggerFactory triggerFactory) {
-        this.id = new ResourceLocation(modid,id);
+        this.id = ResourceLocation.fromNamespaceAndPath(modid, id);
         this.builder = builder;
         this.parent = parent;
-        if(builtin) {
-            this.builtinTrigger = triggerFactory.simple(new ResourceLocation(modid, "builtin/" + id));
-            this.builder.addCriterion("builtin", builtinTrigger.instance());
+        if (builtin) {
+            this.builtinTrigger = triggerFactory.simple(ResourceLocation.fromNamespaceAndPath(modid, "builtin/" + id));
+            this.builder.addCriterion("builtin", builtinTrigger.criterion());
         } else this.builtinTrigger = null;
         this.createAdvancement = CreateAdvancementConstructor.createInstance(id, $ -> $);
         ((CreateAdvancementAccess) createAdvancement).fromAdvancementHolder(this);
@@ -54,47 +54,47 @@ public class AdvancementHolder {
         this.title = title;
         this.description = description;
     }
-    
+
     public ResourceLocation id() {
         return id;
     }
-    
+
     public String titleKey() {
         return titleKey;
     }
-    
+
     public String descriptionKey() {
         return descriptionKey;
     }
-    
+
     public String title() {
         return title;
     }
-    
+
     public String description() {
         return description;
     }
-    
+
     @Nullable
     public SimpleTrigger getTrigger() {
         return builtinTrigger;
     }
-    
+
     public CreateAdvancement asCreateAdvancement() {
-        if(createAdvancement == null)
+        if (createAdvancement == null)
             throw new UnsupportedOperationException("Advancement [" + id + "] can not convert into CreateAdvancement!");
         return createAdvancement;
     }
-    
+
     public boolean isAlreadyAwardedTo(Player player) {
         if (!(player instanceof ServerPlayer sp))
             return true;
-        Advancement advancement = sp.getServer().getAdvancements().getAdvancement(id);
-        if (advancement == null)
+        net.minecraft.advancements.AdvancementHolder advancementHolder = sp.getServer().getAdvancements().get(id);
+        if (advancementHolder == null)
             return true;
-        return sp.getAdvancements().getOrStartProgress(advancement).isDone();
+        return sp.getAdvancements().getOrStartProgress(advancementHolder).isDone();
     }
-    
+
     public void awardTo(Player player) {
         if (!(player instanceof ServerPlayer sp))
             return;
@@ -102,12 +102,12 @@ public class AdvancementHolder {
             throw new UnsupportedOperationException("Advancement [" + id + "] uses external Triggers, it cannot be awarded directly");
         builtinTrigger.trigger(sp);
     }
-    
-    public void save(Consumer<Advancement> consumer) {
+
+    public void save(Consumer<net.minecraft.advancements.AdvancementHolder> consumer) {
         if (parent != null) builder.parent(parent.advancement);
         advancement = builder.save(consumer, id.toString());
     }
-    
+
     public void appendToLang(JsonObject object) {
         object.addProperty(titleKey(), title());
         object.addProperty(descriptionKey(), description());
@@ -116,7 +116,7 @@ public class AdvancementHolder {
     public static JsonObject provideLangEntries(String modid) {
         JsonObject object = new JsonObject();
         var advancements = ENTRIES_MAP.get(modid);
-        if(advancements==null) return object;
+        if (advancements == null) return object;
         for (var advancement : advancements) {
             advancement.appendToLang(object);
         }
@@ -135,19 +135,19 @@ public class AdvancementHolder {
         private String title = "Untitled";
         private String description = "No Description";
         private ItemStack icon = ItemStack.EMPTY;
-        private FrameType frame = FrameType.TASK;
+        private AdvancementType frame = AdvancementType.TASK;
         private boolean toast = true;
         private boolean announce = false;
         private boolean hide = false;
         private final TriggerFactory factory;
 
-        public Builder(String modid,String id, TriggerFactory factory) {
+        public Builder(String modid, String id, TriggerFactory factory) {
             this.modid = modid;
             this.id = id;
-            this.background = "root".equals(id) ? new ResourceLocation(modid,"textures/gui/advancements.png") : null;
+            this.background = "root".equals(id) ? ResourceLocation.fromNamespaceAndPath(modid, "textures/gui/advancements.png") : null;
             this.factory = factory;
         }
-    
+
         public Builder title(String title) {
             this.title = title;
             return this;
@@ -163,7 +163,7 @@ public class AdvancementHolder {
             return this;
         }
 
-        public Builder icon(ItemProviderEntry<?> item) {
+        public Builder icon(ItemProviderEntry<?, ?> item) {
             return icon(item.asStack());
         }
 
@@ -171,7 +171,7 @@ public class AdvancementHolder {
             return icon(new ItemStack(item));
         }
 
-        public Builder frame(FrameType frame) {
+        public Builder frame(AdvancementType frame) {
             this.frame = frame;
             return this;
         }
@@ -191,14 +191,15 @@ public class AdvancementHolder {
             return this;
         }
 
-        public Builder externalTrigger(String key, CriterionTriggerInstance trigger) {
+        public Builder externalTrigger(String key, Criterion<?> trigger) {
             builder.addCriterion(key, trigger);
             this.builtin = false;
             return this;
         }
 
         public Builder parent(ResourceLocation id) {
-            builder.parent(new Advancement(id, null, null, AdvancementRewards.EMPTY, Map.of(), new String[0][0],true));
+            builder.parent(new net.minecraft.advancements.AdvancementHolder(id,
+                    new Advancement(Optional.empty(), Optional.empty(), AdvancementRewards.EMPTY, Map.of(), null, false)));
             return this;
         }
 
@@ -215,21 +216,19 @@ public class AdvancementHolder {
         public AdvancementHolder build() {
             if (hide)
                 description += "\u00A77\n(Hidden Advancement)";
-            AdvancementHolder advancement = new AdvancementHolder(modid,id, builder, parent, builtin, title, description, factory);
+            AdvancementHolder advancement = new AdvancementHolder(modid, id, builder, parent, builtin, title, description, factory);
             builder.display(
-                icon,
-                Component.translatable(advancement.titleKey),
-                Component.translatable(advancement.descriptionKey).withStyle(s -> s.withColor(0xDBA213)),
-                background,
-                frame,
-                toast,
-                announce,
-                hide
+                    icon,
+                    Component.translatable(advancement.titleKey),
+                    Component.translatable(advancement.descriptionKey).withStyle(s -> s.withColor(0xDBA213)),
+                    background,
+                    frame,
+                    toast,
+                    announce,
+                    hide
             );
             ENTRIES_MAP.computeIfAbsent(modid, $ -> new ArrayList<>()).add(advancement);
             return advancement;
         }
-        
     }
-    
 }

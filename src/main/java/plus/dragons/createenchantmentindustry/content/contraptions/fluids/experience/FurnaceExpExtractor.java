@@ -5,10 +5,10 @@ import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.crafting.AbstractCookingRecipe;
-import net.minecraft.world.item.crafting.Recipe;
+import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity;
-import net.minecraftforge.fluids.FluidStack;
-import net.minecraftforge.fluids.capability.IFluidHandler;
+import net.neoforged.neoforge.fluids.FluidStack;
+import net.neoforged.neoforge.fluids.capability.IFluidHandler;
 import org.antlr.v4.runtime.misc.NotNull;
 import plus.dragons.createenchantmentindustry.entry.CeiFluids;
 
@@ -26,8 +26,8 @@ public class FurnaceExpExtractor implements IFluidHandler{
     int getTotalExp() {
         AtomicDouble result = new AtomicDouble(0);
         for (Object2IntMap.Entry<ResourceLocation> entry : recipesUsed.object2IntEntrySet()) {
-            BE.getLevel().getRecipeManager().byKey(entry.getKey()).ifPresent(recipe ->
-                    result.addAndGet(((AbstractCookingRecipe) recipe).getExperience() * entry.getIntValue())
+            BE.getLevel().getRecipeManager().byKey(entry.getKey()).ifPresent(recipeHolder ->
+                    result.addAndGet(((AbstractCookingRecipe) recipeHolder.value()).getExperience() * entry.getIntValue())
             );
         }
         return (int) Math.floor(result.floatValue());
@@ -80,23 +80,23 @@ public class FurnaceExpExtractor implements IFluidHandler{
             if (action.execute()) recipesUsed.clear();
             return new FluidStack(CeiFluids.EXPERIENCE.get(), total);
         }
-        ArrayList<Recipe<?>> allRecipes = new ArrayList<>();
+        ArrayList<RecipeHolder<?>> allRecipes = new ArrayList<>();
         for (Object2IntMap.Entry<ResourceLocation> entry : recipesUsed.object2IntEntrySet()) {
-            BE.getLevel().getRecipeManager().byKey(entry.getKey()).ifPresent(recipe -> {
+            BE.getLevel().getRecipeManager().byKey(entry.getKey()).ifPresent(recipeHolder -> {
                 for(int i=0;i<entry.getIntValue();i++){
-                    allRecipes.add(recipe);
+                    allRecipes.add(recipeHolder);
                 }
             });
         }
         var done = false;
         var result = 0;
-        for(var recipe: allRecipes){
+        for(var recipeHolder: allRecipes){
             if (done) {
                 if (action.execute()) {
-                    BE.setRecipeUsed(recipe);
+                    BE.setRecipeUsed(recipeHolder);
                 }
             } else {
-                var exp = ((AbstractCookingRecipe) recipe).getExperience();
+                var exp = ((AbstractCookingRecipe) recipeHolder.value()).getExperience();
                 if (exp <= maxDrain - result) {
                     result+=exp;
                 } else {

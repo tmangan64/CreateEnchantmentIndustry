@@ -1,57 +1,48 @@
 package plus.dragons.createenchantmentindustry.content.contraptions.enchanting.enchanter;
 
-import com.simibubi.create.foundation.networking.SimplePacketBase;
 import net.minecraft.core.BlockPos;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.ByteBufCodecs;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
-import net.minecraftforge.network.NetworkEvent.Context;
+import net.neoforged.neoforge.network.handling.IPayloadContext;
+import plus.dragons.createenchantmentindustry.EnchantmentIndustry;
 
-public class BlazeEnchanterEditPacket extends SimplePacketBase {
+public record BlazeEnchanterEditPacket(int index, ItemStack itemStack, BlockPos blockPos) implements CustomPacketPayload {
 
-    private final int index;
-    private final ItemStack itemStack;
-    private final BlockPos blockPos;
+    public static final Type<BlazeEnchanterEditPacket> TYPE =
+        new Type<>(EnchantmentIndustry.genRL("blaze_enchanter_edit"));
 
-
-    public BlazeEnchanterEditPacket(int index, ItemStack enchantedBook, BlockPos blockPos) {
-        this.index = index;
-        itemStack = enchantedBook;
-        this.blockPos = blockPos;
-    }
-
-    public BlazeEnchanterEditPacket(FriendlyByteBuf buffer) {
-        index = buffer.readInt();
-        itemStack = buffer.readItem();
-        blockPos = buffer.readBlockPos();
-    }
+    public static final StreamCodec<RegistryFriendlyByteBuf, BlazeEnchanterEditPacket> STREAM_CODEC =
+        StreamCodec.composite(
+            ByteBufCodecs.INT, BlazeEnchanterEditPacket::index,
+            ItemStack.OPTIONAL_STREAM_CODEC, BlazeEnchanterEditPacket::itemStack,
+            BlockPos.STREAM_CODEC, BlazeEnchanterEditPacket::blockPos,
+            BlazeEnchanterEditPacket::new
+        );
 
     @Override
-    public void write(FriendlyByteBuf buffer) {
-        buffer.writeInt(index);
-        buffer.writeItem(itemStack);
-        buffer.writeBlockPos(blockPos);
+    public Type<? extends CustomPacketPayload> type() {
+        return TYPE;
     }
 
-    @Override
-    public boolean handle(Context context) {
+    public static void handle(BlazeEnchanterEditPacket packet, IPayloadContext context) {
         context.enqueueWork(() -> {
-                    ServerPlayer sender = context.getSender();
-                    if(!(sender.level().getBlockEntity(blockPos) instanceof BlazeEnchanterBlockEntity blazeEnchanter))
-                        return;
+            if (context.player() instanceof ServerPlayer sender) {
+                if (!(sender.level().getBlockEntity(packet.blockPos()) instanceof BlazeEnchanterBlockEntity blazeEnchanter))
+                    return;
 
-                    CompoundTag tag = blazeEnchanter.targetItem.getOrCreateTag();
-                    tag.putInt("index", index);
-                    tag.put("target", itemStack.serializeNBT());
-                    tag.remove("blockPos");
+                blazeEnchanter.targetItem.set(CeiDataComponents.ENCHANTING_GUIDE_INDEX.get(), packet.index());
+                blazeEnchanter.targetItem.set(CeiDataComponents.ENCHANTING_GUIDE_TARGET.get(), packet.itemStack());
 
-                    if(blazeEnchanter.processingTicks>5){
-                        blazeEnchanter.processingTicks = BlazeEnchanterBlockEntity.ENCHANTING_TIME;
-                    }
+                if (blazeEnchanter.processingTicks > 5) {
+                    blazeEnchanter.processingTicks = BlazeEnchanterBlockEntity.ENCHANTING_TIME;
+                }
 
-                    blazeEnchanter.notifyUpdate();
-                });
-        return true;
+                blazeEnchanter.notifyUpdate();
+            }
+        });
     }
 }

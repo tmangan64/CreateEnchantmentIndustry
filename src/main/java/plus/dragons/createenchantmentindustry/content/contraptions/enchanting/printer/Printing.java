@@ -1,7 +1,7 @@
 package plus.dragons.createenchantmentindustry.content.contraptions.enchanting.printer;
 
 import net.minecraft.world.item.ItemStack;
-import net.minecraftforge.fluids.FluidStack;
+import net.neoforged.neoforge.fluids.FluidStack;
 
 import javax.annotation.Nullable;
 

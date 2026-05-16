@@ -4,14 +4,15 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.simibubi.create.foundation.blockEntity.behaviour.fluid.SmartFluidTankBehaviour;
 import com.simibubi.create.foundation.blockEntity.renderer.SmartBlockEntityRenderer;
 import dev.engine_room.flywheel.lib.model.baked.PartialModel;
-import net.createmod.catnip.platform.ForgeCatnipServices;
+import net.createmod.catnip.platform.CatnipServices;
 import net.createmod.catnip.render.CachedBuffers;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider;
 import net.minecraft.util.Mth;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraftforge.fluids.FluidStack;
+import net.minecraft.world.level.material.FluidState;
+import net.neoforged.neoforge.fluids.FluidStack;
 import plus.dragons.createenchantmentindustry.entry.CeiBlockPartials;
 
 public class PrinterRenderer extends SmartBlockEntityRenderer<PrinterBlockEntity> {
@@ -40,7 +41,8 @@ public class PrinterRenderer extends SmartBlockEntityRenderer<PrinterBlockEntity
             float yOffset = (11 / 16f) * level;
             ms.pushPose();
             ms.translate(0, yOffset, 0);
-            ForgeCatnipServices.FLUID_RENDERER.renderFluidBox(fluidStack, min, min - yOffset, min, max, min, max, buffer, ms, light,
+            FluidState fluidState = fluidStack.getFluid().defaultFluidState();
+            CatnipServices.FLUID_RENDERER.renderFluidBox(fluidState, min, min - yOffset, min, max, min, max, buffer, ms, light,
                     false,false);
             ms.popPose();
         }

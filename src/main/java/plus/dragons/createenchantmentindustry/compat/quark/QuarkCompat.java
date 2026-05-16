@@ -1,23 +1,22 @@
 package plus.dragons.createenchantmentindustry.compat.quark;
 
 import net.minecraft.ChatFormatting;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
+import net.minecraft.core.Holder;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.item.EnchantedBookItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.enchantment.Enchantment;
+import net.minecraft.world.item.enchantment.ItemEnchantments;
 import net.minecraft.world.level.material.Fluid;
-import net.minecraftforge.common.MinecraftForge;
-import net.minecraftforge.fml.ModList;
-import net.minecraftforge.registries.ForgeRegistries;
-import org.antlr.v4.runtime.misc.NotNull;
+import net.neoforged.fml.ModList;
+import net.neoforged.neoforge.common.NeoForge;
+import net.minecraft.core.registries.BuiltInRegistries;
+import org.jetbrains.annotations.NotNull;
 import plus.dragons.createenchantmentindustry.EnchantmentIndustry;
 import plus.dragons.createenchantmentindustry.api.PrintEntryRegisterEvent;
-import plus.dragons.createenchantmentindustry.content.contraptions.enchanting.enchanter.Enchanting;
 import plus.dragons.createenchantmentindustry.content.contraptions.enchanting.printer.PrintEntry;
 import plus.dragons.createenchantmentindustry.content.contraptions.enchanting.printer.Printing;
 import plus.dragons.createenchantmentindustry.entry.CeiFluids;
@@ -30,14 +29,14 @@ import static plus.dragons.createenchantmentindustry.EnchantmentIndustry.LANG;
 public class QuarkCompat {
     public static void registerPrintEntry(){
         if(ModList.get().isLoaded("quark")){
-            MinecraftForge.EVENT_BUS.addListener(QuarkCompat::register);
+            NeoForge.EVENT_BUS.addListener(QuarkCompat::register);
         }
     }
 
     private static void register(PrintEntryRegisterEvent event){
         event.register(new PrintEntry() {
 
-            private final ResourceLocation id = new ResourceLocation("quark","ancient_tome");
+            private final ResourceLocation id = ResourceLocation.fromNamespaceAndPath("quark","ancient_tome");
             @Override
             public @NotNull ResourceLocation id() {
                 return EnchantmentIndustry.genRL("ancient_tome");
@@ -46,7 +45,7 @@ public class QuarkCompat {
             @SuppressWarnings("all")
             @Override
             public boolean match(@NotNull ItemStack toPrint) {
-                return ForgeRegistries.ITEMS.getHolder(toPrint.getItem()).get().is(id);
+                return BuiltInRegistries.ITEM.getHolder(BuiltInRegistries.ITEM.getKey(toPrint.getItem())).get().is(id);
             }
 
             @Override
@@ -57,9 +56,13 @@ public class QuarkCompat {
             @SuppressWarnings("all")
             @Override
             public int requiredInkAmount(@NotNull ItemStack target) {
-                var enchantment = getTomeEnchantment(target);
-                if(enchantment==null) return 50;
-                return enchantment.getMinCost(1) + Enchanting.rarityLevel(enchantment.getRarity());
+                var enchantmentHolder = getTomeEnchantment(target);
+                if(enchantmentHolder == null) return 50;
+                Enchantment enchantment = enchantmentHolder.value();
+                // In 1.21, Enchantment.Rarity was replaced with anvilCost
+                int anvilCost = enchantment.getAnvilCost();
+                int rarityLevel = anvilCost <= 1 ? 1 : anvilCost <= 2 ? 2 : anvilCost <= 4 ? 3 : 4;
+                return enchantment.getMinCost(1) + rarityLevel;
             }
 
             @Override
@@ -102,21 +105,19 @@ public class QuarkCompat {
                 }
                 return ret.component();
             }
-            private static Enchantment getTomeEnchantment(ItemStack stack) {
-                ListTag list = EnchantedBookItem.getEnchantments(stack);
 
-                for(int i = 0; i < list.size(); ++i) {
-                    CompoundTag nbt = list.getCompound(i);
-                    Enchantment enchant = ForgeRegistries.ENCHANTMENTS.getValue(ResourceLocation.tryParse(nbt.getString("id")));
-                    if (enchant != null)
-                        return enchant;
+            private static Holder<Enchantment> getTomeEnchantment(ItemStack stack) {
+                // In 1.21, enchantments are accessed via DataComponents
+                ItemEnchantments storedEnchantments = stack.getOrDefault(DataComponents.STORED_ENCHANTMENTS, ItemEnchantments.EMPTY);
+                for (var entry : storedEnchantments.entrySet()) {
+                    return entry.getKey();
                 }
-
                 return null;
             }
 
-            public static Component getFullTooltipText(Enchantment ench) {
-                return Component.translatable("quark.misc.ancient_tome_tooltip", Component.translatable(ench.getDescriptionId()), Component.translatable("enchantment.level." + (ench.getMaxLevel() + 1)));
+            public static Component getFullTooltipText(Holder<Enchantment> enchHolder) {
+                Enchantment ench = enchHolder.value();
+                return Component.translatable("quark.misc.ancient_tome_tooltip", Component.translatable(ench.description().getString()), Component.translatable("enchantment.level." + (ench.getMaxLevel() + 1)));
             }
         });
     }

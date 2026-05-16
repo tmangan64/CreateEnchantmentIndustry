@@ -4,8 +4,8 @@ import com.google.common.collect.ImmutableList;
 import com.simibubi.create.foundation.gui.menu.GhostItemMenu;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
-import net.minecraft.nbt.Tag;
-import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.core.HolderLookup;
+import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
@@ -13,11 +13,12 @@ import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.item.enchantment.EnchantmentHelper;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.fml.DistExecutor;
-import net.minecraftforge.items.ItemStackHandler;
-import net.minecraftforge.items.SlotItemHandler;
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.fml.loading.FMLEnvironment;
+import net.neoforged.neoforge.items.ItemStackHandler;
+import net.neoforged.neoforge.items.SlotItemHandler;
 
 import javax.annotation.Nullable;
 
@@ -30,9 +31,11 @@ public class EnchantingGuideMenu extends GhostItemMenu<ItemStack> {
     boolean directItemStackEdit;
     @Nullable
     BlockPos blockPos = null;
+    private final HolderLookup.Provider registries;
 
-    public EnchantingGuideMenu(MenuType<?> type, int id, Inventory inv, FriendlyByteBuf extraData) {
+    public EnchantingGuideMenu(MenuType<?> type, int id, Inventory inv, RegistryFriendlyByteBuf extraData) {
         super(type, id, inv, extraData);
+        this.registries = inv.player.level().registryAccess();
         directItemStackEdit = extraData.readBoolean();
         if(!directItemStackEdit){
             blockPos = extraData.readBlockPos();
@@ -41,6 +44,7 @@ public class EnchantingGuideMenu extends GhostItemMenu<ItemStack> {
 
     public EnchantingGuideMenu(MenuType<?> type, int id, Inventory inv, ItemStack contentHolder, @Nullable BlockPos blockPos) {
         super(type, id, inv, contentHolder);
+        this.registries = inv.player.level().registryAccess();
         if(blockPos!=null){
             directItemStackEdit = false;
             this.blockPos = blockPos;
@@ -50,23 +54,23 @@ public class EnchantingGuideMenu extends GhostItemMenu<ItemStack> {
     }
 
     private void updateEnchantments(ItemStack stack) {
-        var map = EnchantmentHelper.getEnchantments(stack);
+        var map = EnchantmentHelper.getEnchantmentsForCrafting(stack);
         if (map.isEmpty())
             enchantments = ImmutableList.of(NO_ENCHANTMENT);
         else
             enchantments = ImmutableList.copyOf(map
                     .entrySet()
                     .stream()
-                    .map(entry -> entry.getKey().getFullname(entry.getValue()))
+                    .map(entry -> Enchantment.getFullname(entry.getKey(), entry.getValue()))
                     .toArray(Component[]::new)
             );
         boolean resetIndex = previousEnchantments == null || !previousEnchantments.toString().equals(enchantments.toString());
         previousEnchantments = ImmutableList.copyOf(enchantments);
-        DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> {
+        if (FMLEnvironment.dist == Dist.CLIENT) {
             if (Minecraft.getInstance().screen instanceof EnchantingGuideScreen screen) {
                 screen.updateScrollInput(resetIndex);
             }
-        });
+        }
     }
 
     @Override
@@ -82,17 +86,16 @@ public class EnchantingGuideMenu extends GhostItemMenu<ItemStack> {
     @Override
     protected void initAndReadInventory(ItemStack contentHolder) {
         super.initAndReadInventory(contentHolder);
-        var tag = contentHolder.getOrCreateTag();
-        if (tag.contains("target", Tag.TAG_COMPOUND)) {
-            ItemStack target = ItemStack.of(tag.getCompound("target"));
+        ItemStack target = contentHolder.get(CeiDataComponents.ENCHANTING_GUIDE_TARGET.get());
+        if (target != null && !target.isEmpty()) {
             ghostInventory.setStackInSlot(0, target);
             updateEnchantments(target);
         }
     }
 
     @Override
-    protected ItemStack createOnClient(FriendlyByteBuf extraData) {
-        return extraData.readItem();
+    protected ItemStack createOnClient(RegistryFriendlyByteBuf extraData) {
+        return ItemStack.STREAM_CODEC.decode(extraData);
     }
 
     @Override
@@ -122,7 +125,7 @@ public class EnchantingGuideMenu extends GhostItemMenu<ItemStack> {
 
         @Override
         public boolean mayPlace(ItemStack pStack) {
-            return pStack.is(Items.ENCHANTED_BOOK) && !EnchantmentHelper.getEnchantments(pStack).isEmpty();
+            return pStack.is(Items.ENCHANTED_BOOK) && !EnchantmentHelper.getEnchantmentsForCrafting(pStack).isEmpty();
         }
 
         @Override

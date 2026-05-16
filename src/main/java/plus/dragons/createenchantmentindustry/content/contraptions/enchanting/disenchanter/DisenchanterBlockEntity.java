@@ -13,6 +13,7 @@ import net.createmod.catnip.data.Pair;
 import net.createmod.catnip.math.VecHelper;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
@@ -27,13 +28,10 @@ import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
-import net.minecraftforge.common.capabilities.Capability;
-import net.minecraftforge.common.capabilities.ForgeCapabilities;
-import net.minecraftforge.common.util.LazyOptional;
-import net.minecraftforge.fluids.FluidStack;
-import net.minecraftforge.fluids.capability.IFluidHandler;
-import net.minecraftforge.items.ItemHandlerHelper;
-import org.antlr.v4.runtime.misc.NotNull;
+import net.neoforged.neoforge.capabilities.Capabilities;
+import net.neoforged.neoforge.fluids.FluidStack;
+import net.neoforged.neoforge.fluids.capability.IFluidHandler;
+import net.neoforged.neoforge.items.IItemHandler;
 import plus.dragons.createenchantmentindustry.content.contraptions.enchanting.enchanter.Enchanting;
 import plus.dragons.createenchantmentindustry.content.contraptions.fluids.experience.ExperienceFluid;
 import plus.dragons.createenchantmentindustry.entry.CeiFluids;
@@ -56,7 +54,7 @@ public class DisenchanterBlockEntity extends SmartBlockEntity implements IHaveGo
     SmartFluidTankBehaviour internalTank;
     TransportedItemStack heldItem;
     int processingTicks;
-    Map<Direction, LazyOptional<DisenchanterItemHandler>> itemHandlers;
+    Map<Direction, DisenchanterItemHandler> itemHandlers;
 
     AABB absorbArea;
 
@@ -64,8 +62,7 @@ public class DisenchanterBlockEntity extends SmartBlockEntity implements IHaveGo
         super(type, pos, state);
         itemHandlers = new IdentityHashMap<>();
         for (Direction d : Iterate.horizontalDirections) {
-            DisenchanterItemHandler disenchanterItemHandler = new DisenchanterItemHandler(this, d);
-            itemHandlers.put(d, LazyOptional.of(() -> disenchanterItemHandler));
+            itemHandlers.put(d, new DisenchanterItemHandler(this, d));
         }
         absorbArea = new AABB(pos.above());
     }
@@ -254,7 +251,7 @@ public class DisenchanterBlockEntity extends SmartBlockEntity implements IHaveGo
         if (!experienceOrbs.isEmpty()) {
             internalTank.allowInsertion();
             for (var orb : experienceOrbs) {
-                var amount = orb.value;
+                var amount = orb.getValue();
                 var fluidStack = new FluidStack(CeiFluids.EXPERIENCE.get().getSource(), amount);
                 var inserted = internalTank.getPrimaryHandler().fill(fluidStack, IFluidHandler.FluidAction.EXECUTE);
                 if (inserted == amount) {
@@ -263,7 +260,6 @@ public class DisenchanterBlockEntity extends SmartBlockEntity implements IHaveGo
                 } else {
                     if (inserted != 0) {
                         absorbedXp = true;
-                        orb.value -= inserted;
                     }
                     break;
                 }
@@ -352,8 +348,8 @@ public class DisenchanterBlockEntity extends SmartBlockEntity implements IHaveGo
         }
 
         if (inserted.getCount() > 1 && Disenchanting.disenchantResult(inserted, level) != null) {
-            returned = ItemHandlerHelper.copyStackWithSize(inserted, inserted.getCount() - 1);
-            inserted = ItemHandlerHelper.copyStackWithSize(inserted, 1);
+            returned = inserted.copyWithCount(inserted.getCount() - 1);
+            inserted = inserted.copyWithCount(1);
         }
 
         if (simulate)
@@ -382,13 +378,6 @@ public class DisenchanterBlockEntity extends SmartBlockEntity implements IHaveGo
     }
 
     @Override
-    public void invalidate() {
-        super.invalidate();
-        for (LazyOptional<DisenchanterItemHandler> lazyOptional : itemHandlers.values())
-            lazyOptional.invalidate();
-    }
-
-    @Override
     public void destroy() {
         super.destroy();
         if (level instanceof ServerLevel serverLevel) {
@@ -404,38 +393,37 @@ public class DisenchanterBlockEntity extends SmartBlockEntity implements IHaveGo
     }
 
     @Override
-    public void write(CompoundTag compoundTag, boolean clientPacket) {
+    public void write(CompoundTag compoundTag, HolderLookup.Provider registries, boolean clientPacket) {
         compoundTag.putInt("ProcessingTicks", processingTicks);
         if (heldItem != null)
-            compoundTag.put("HeldItem", heldItem.serializeNBT());
-        super.write(compoundTag, clientPacket);
+            compoundTag.put("HeldItem", heldItem.serializeNBT(registries));
+        super.write(compoundTag, registries, clientPacket);
     }
 
     @Override
-    protected void read(CompoundTag compoundTag, boolean clientPacket) {
+    protected void read(CompoundTag compoundTag, HolderLookup.Provider registries, boolean clientPacket) {
         heldItem = null;
         processingTicks = compoundTag.getInt("ProcessingTicks");
         if (compoundTag.contains("HeldItem"))
-            heldItem = TransportedItemStack.read(compoundTag.getCompound("HeldItem"));
-        super.read(compoundTag, clientPacket);
+            heldItem = TransportedItemStack.read(compoundTag.getCompound("HeldItem"), registries);
+        super.read(compoundTag, registries, clientPacket);
     }
 
-    @Override
-    @NotNull
-    public <T> LazyOptional<T> getCapability(Capability<T> capability, @Nullable Direction side) {
-        if (side != null && side.getAxis()
-                .isHorizontal() && isItemHandlerCap(capability))
-            return itemHandlers.get(side)
-                    .cast();
+    @Nullable
+    public IItemHandler getItemHandler(Direction side) {
+        if (side != null && side.getAxis().isHorizontal())
+            return itemHandlers.get(side);
+        return null;
+    }
 
-        if ((side != Direction.UP) && isFluidHandlerCap(capability))
-            return internalTank.getCapability()
-                    .cast();
-        return super.getCapability(capability, side);
+    @Nullable
+    public IFluidHandler getFluidHandler() {
+        return internalTank.getCapability();
     }
 
     @Override
     public boolean addToGoggleTooltip(List<Component> tooltip, boolean isPlayerSneaking) {
-        return containedFluidTooltip(tooltip, isPlayerSneaking, getCapability(ForgeCapabilities.FLUID_HANDLER));
+        var handler = level.getCapability(Capabilities.FluidHandler.BLOCK, getBlockPos(), getBlockState(), this, null);
+        return containedFluidTooltip(tooltip, isPlayerSneaking, handler);
     }
 }

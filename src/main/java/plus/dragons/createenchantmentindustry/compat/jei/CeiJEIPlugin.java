@@ -3,7 +3,7 @@ package plus.dragons.createenchantmentindustry.compat.jei;
 import com.simibubi.create.compat.jei.category.CreateRecipeCategory;
 import mezz.jei.api.IModPlugin;
 import mezz.jei.api.JeiPlugin;
-import mezz.jei.api.forge.ForgeTypes;
+import mezz.jei.api.neoforge.NeoForgeTypes;
 import mezz.jei.api.recipe.category.IRecipeCategory;
 import mezz.jei.api.registration.IRecipeCatalystRegistration;
 import mezz.jei.api.registration.IRecipeCategoryRegistration;
@@ -13,8 +13,8 @@ import mezz.jei.api.runtime.IJeiRuntime;
 import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.crafting.Recipe;
-import net.minecraftforge.fluids.FluidStack;
-import net.minecraftforge.fluids.FluidType;
+import net.neoforged.neoforge.fluids.FluidStack;
+import net.neoforged.neoforge.fluids.FluidType;
 import plus.dragons.createenchantmentindustry.EnchantmentIndustry;
 import plus.dragons.createenchantmentindustry.compat.jei.category.DisenchantingCategory;
 import plus.dragons.createenchantmentindustry.compat.jei.category.RecipeCategoryBuilder;
@@ -64,7 +64,7 @@ public class CeiJEIPlugin implements IModPlugin {
         List<FluidStack> fluidIngredients = new ArrayList<>();
         fluidIngredients.add(new FluidStack(CeiFluids.EXPERIENCE.get().getSource(), FluidType.BUCKET_VOLUME));
         fluidIngredients.add(new FluidStack(CeiFluids.HYPER_EXPERIENCE.get().getSource(), FluidType.BUCKET_VOLUME));
-        jeiRuntime.getIngredientManager().addIngredientsAtRuntime(ForgeTypes.FLUID_STACK,fluidIngredients);
+        jeiRuntime.getIngredientManager().addIngredientsAtRuntime(NeoForgeTypes.FLUID_STACK,fluidIngredients);
     }
 
     private static <T extends Recipe<?>> RecipeCategoryBuilder<T> builder(Class<T> cls) {

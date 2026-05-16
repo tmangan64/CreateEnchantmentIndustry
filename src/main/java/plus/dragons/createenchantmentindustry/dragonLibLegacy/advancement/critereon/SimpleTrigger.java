@@ -1,45 +1,59 @@
 package plus.dragons.createenchantmentindustry.dragonLibLegacy.advancement.critereon;
 
-import com.google.gson.JsonObject;
+import com.mojang.serialization.Codec;
+import com.mojang.serialization.codecs.RecordCodecBuilder;
+import net.minecraft.advancements.Criterion;
 import net.minecraft.advancements.critereon.ContextAwarePredicate;
-import net.minecraft.advancements.critereon.DeserializationContext;
+import net.minecraft.advancements.critereon.EntityPredicate;
+import net.minecraft.advancements.critereon.SimpleCriterionTrigger;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 
-import javax.annotation.Nullable;
-import java.util.List;
-import java.util.function.Supplier;
+import java.util.Optional;
 
-public class SimpleTrigger extends AbstractTrigger<SimpleTrigger.Instance> {
+public class SimpleTrigger extends SimpleCriterionTrigger<SimpleTrigger.Instance> {
+
+    private final ResourceLocation id;
 
     public SimpleTrigger(ResourceLocation id) {
-        super(id);
+        this.id = id;
+    }
+
+    public ResourceLocation getId() {
+        return id;
     }
 
     @Override
-    public Instance createInstance(JsonObject json, DeserializationContext context) {
-        return new Instance(getId());
+    public Codec<Instance> codec() {
+        return Instance.CODEC;
     }
 
     public void trigger(ServerPlayer player) {
-        super.trigger(player, null);
+        super.trigger(player, instance -> true);
     }
 
     public Instance instance() {
-        return new Instance(getId());
+        return new Instance(Optional.empty());
     }
 
-    public static class Instance extends AbstractTrigger.Instance {
+    public Criterion<Instance> criterion() {
+        return this.createCriterion(instance());
+    }
 
-        public Instance(ResourceLocation idIn) {
-            super(idIn, ContextAwarePredicate.ANY);
+    public static class Instance implements SimpleCriterionTrigger.SimpleInstance {
+        public static final Codec<Instance> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+                EntityPredicate.ADVANCEMENT_CODEC.optionalFieldOf("player").forGetter(Instance::player)
+        ).apply(instance, Instance::new));
+
+        private final Optional<ContextAwarePredicate> player;
+
+        public Instance(Optional<ContextAwarePredicate> player) {
+            this.player = player;
         }
-        
+
         @Override
-        protected boolean test(@Nullable List<Supplier<Object>> suppliers) {
-            return true;
+        public Optional<ContextAwarePredicate> player() {
+            return player;
         }
-        
     }
-    
 }

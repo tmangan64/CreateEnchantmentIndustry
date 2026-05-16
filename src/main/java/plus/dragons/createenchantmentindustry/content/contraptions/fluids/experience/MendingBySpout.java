@@ -1,19 +1,27 @@
 package plus.dragons.createenchantmentindustry.content.contraptions.fluids.experience;
 
+import net.minecraft.core.Holder;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.util.Mth;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.item.enchantment.EnchantmentHelper;
 import net.minecraft.world.item.enchantment.Enchantments;
 import net.minecraft.world.level.Level;
-import net.minecraftforge.fluids.FluidStack;
+import net.neoforged.neoforge.fluids.FluidStack;
 import plus.dragons.createenchantmentindustry.entry.CeiFluids;
 
 import javax.annotation.Nullable;
+import java.util.Optional;
 
 public class MendingBySpout {
-    
+
     public static boolean canItemBeMended(Level world, ItemStack stack) {
-        return stack.isDamaged() && EnchantmentHelper.getItemEnchantmentLevel(Enchantments.MENDING, stack) > 0;
+        if (!stack.isDamaged()) return false;
+        Optional<Holder.Reference<Enchantment>> mendingHolder = world.registryAccess()
+                .lookupOrThrow(Registries.ENCHANTMENT)
+                .get(Enchantments.MENDING);
+        return mendingHolder.isPresent() && EnchantmentHelper.getItemEnchantmentLevel(mendingHolder.get(), stack) > 0;
     }
     
     public static int getRequiredAmountForItem(Level world, ItemStack stack, FluidStack availableFluid) {

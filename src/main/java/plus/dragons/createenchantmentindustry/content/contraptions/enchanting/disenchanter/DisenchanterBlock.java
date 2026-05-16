@@ -10,6 +10,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.ItemInteractionResult;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
@@ -48,30 +49,31 @@ public class DisenchanterBlock extends Block implements IWrenchable, IBE<Disench
     }
 
     @Override
-    public InteractionResult use(BlockState state, Level worldIn, BlockPos pos, Player player, InteractionHand handIn, BlockHitResult hit) {
-        if(handIn==InteractionHand.OFF_HAND)
-            return InteractionResult.PASS;
-        ItemStack heldItem = player.getItemInHand(handIn);
-        if (heldItem.isEmpty()){
-            return onBlockEntityUse(worldIn, pos, be -> {
-                if (!be.getHeldItemStack().isEmpty()) {
-                    if (!worldIn.isClientSide) {
-                        player.setItemInHand(handIn, be.heldItem.stack);
-                        be.heldItem = null;
-                        be.notifyUpdate();
-                    }
-                    return InteractionResult.sidedSuccess(worldIn.isClientSide);
+    protected InteractionResult useWithoutItem(BlockState state, Level worldIn, BlockPos pos, Player player, BlockHitResult hit) {
+        return onBlockEntityUse(worldIn, pos, be -> {
+            if (!be.getHeldItemStack().isEmpty()) {
+                if (!worldIn.isClientSide) {
+                    player.setItemInHand(InteractionHand.MAIN_HAND, be.heldItem.stack);
+                    be.heldItem = null;
+                    be.notifyUpdate();
                 }
-                return InteractionResult.PASS;
-            });
-        }
+                return InteractionResult.sidedSuccess(worldIn.isClientSide);
+            }
+            return InteractionResult.PASS;
+        });
+    }
+
+    @Override
+    protected ItemInteractionResult useItemOn(ItemStack heldItem, BlockState state, Level worldIn, BlockPos pos, Player player, InteractionHand handIn, BlockHitResult hit) {
+        if(handIn==InteractionHand.OFF_HAND)
+            return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
         if(hit.getDirection() == Direction.UP){
-            return onBlockEntityUse(worldIn, pos, be -> {
+            InteractionResult result = onBlockEntityUse(worldIn, pos, be -> {
                 if (be.getHeldItemStack().isEmpty()) {
                     var insert = heldItem.copy();
                     insert.setCount(1);
-                    var result = Disenchanting.disenchantResult(insert,worldIn);
-                    if (result!=null) {
+                    var disenchantResult = Disenchanting.disenchantResult(insert,worldIn);
+                    if (disenchantResult!=null) {
                         if(!worldIn.isClientSide()){
                             be.heldItem = new TransportedItemStack(insert);
                             be.notifyUpdate();
@@ -82,8 +84,11 @@ public class DisenchanterBlock extends Block implements IWrenchable, IBE<Disench
                 }
                 return InteractionResult.PASS;
             });
+            return result == InteractionResult.PASS
+                ? ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION
+                : ItemInteractionResult.sidedSuccess(worldIn.isClientSide);
         }
-        return InteractionResult.PASS;
+        return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
     }
 
     @Override
@@ -119,7 +124,7 @@ public class DisenchanterBlock extends Block implements IWrenchable, IBE<Disench
     }
 
     @Override
-    public boolean isPathfindable(BlockState state, BlockGetter reader, BlockPos pos, PathComputationType type) {
+    protected boolean isPathfindable(BlockState state, PathComputationType type) {
         return false;
     }
 

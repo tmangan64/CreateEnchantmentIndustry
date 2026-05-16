@@ -3,15 +3,19 @@ package plus.dragons.createenchantmentindustry.content.contraptions.enchanting.p
 import com.simibubi.create.AllBlocks;
 import com.simibubi.create.AllItems;
 import net.minecraft.ChatFormatting;
+import net.minecraft.core.Holder;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.minecraft.world.item.WrittenBookItem;
+import net.minecraft.world.item.component.WrittenBookContent;
+import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.item.enchantment.EnchantmentHelper;
+import net.minecraft.world.item.enchantment.ItemEnchantments;
 import net.minecraft.world.level.material.Fluid;
-import net.minecraftforge.common.MinecraftForge;
+import net.neoforged.neoforge.common.NeoForge;
 import plus.dragons.createenchantmentindustry.EnchantmentIndustry;
 import plus.dragons.createenchantmentindustry.api.PrintEntryRegisterEvent;
 import plus.dragons.createenchantmentindustry.content.contraptions.enchanting.EnchantmentLevelUtil;
@@ -41,7 +45,7 @@ public class PrintEntries {
         ENTRIES.put(e5.id(),e5);
 
         var event = new PrintEntryRegisterEvent();
-        MinecraftForge.EVENT_BUS.post(event);
+        NeoForge.EVENT_BUS.post(event);
     }
 
     static class EnchantedBook implements PrintEntry{
@@ -71,10 +75,10 @@ public class PrintEntries {
 
         @Override
         public Fluid requiredInkType(ItemStack target) {
-            return EnchantmentHelper.getEnchantments(target)
-                    .entrySet()
+            ItemEnchantments enchantments = EnchantmentHelper.getEnchantmentsForCrafting(target);
+            return enchantments.entrySet()
                     .stream()
-                    .map(entry -> entry.getValue()>EnchantmentLevelUtil.getMaxLevel(entry.getKey()))
+                    .map(entry -> entry.getIntValue() > EnchantmentLevelUtil.getMaxLevel(entry.getKey()))
                     .reduce(false, (a,b)->a||b) ? CeiFluids.HYPER_EXPERIENCE.get(): CeiFluids.EXPERIENCE.get();
         }
 
@@ -95,10 +99,10 @@ public class PrintEntries {
                         "gui.goggles.too_expensive").component()
                 ).withStyle(ChatFormatting.RED));
             else{
-                var hyper = EnchantmentHelper.getEnchantments(target)
-                        .entrySet()
+                ItemEnchantments enchantments = EnchantmentHelper.getEnchantmentsForCrafting(target);
+                var hyper = enchantments.entrySet()
                         .stream()
-                        .map(entry -> entry.getValue()>EnchantmentLevelUtil.getMaxLevel(entry.getKey()))
+                        .map(entry -> entry.getIntValue() > EnchantmentLevelUtil.getMaxLevel(entry.getKey()))
                         .reduce(false, (a,a2)->a||a2);
                 tooltip.add(Component.literal("     ").append(LANG.translate(
                         hyper ? "gui.goggles.hyper_xp_consumption": "gui.goggles.xp_consumption",
@@ -107,9 +111,11 @@ public class PrintEntries {
                                 CeiConfigs.SERVER.copyEnchantedBookCostCoefficient.get())))).component()
                 ).withStyle(hyper? ChatFormatting.AQUA: ChatFormatting.GREEN));
             }
-            var map = EnchantmentHelper.getEnchantments(target);
+            ItemEnchantments map = EnchantmentHelper.getEnchantmentsForCrafting(target);
             for (var e : map.entrySet()) {
-                Component name = e.getKey().getFullname(e.getValue());
+                Holder<Enchantment> enchantment = e.getKey();
+                int level = e.getIntValue();
+                Component name = Enchantment.getFullname(enchantment, level);
                 tooltip.add(Component.literal("     ").append(name).withStyle(name.getStyle()));
             }
         }
@@ -117,19 +123,21 @@ public class PrintEntries {
         @Override
         public MutableComponent getDisplaySourceContent(ItemStack target) {
             var ret = LANG.itemName(target).text( " / ");
-            var map = EnchantmentHelper.getEnchantments(target);
+            ItemEnchantments map = EnchantmentHelper.getEnchantmentsForCrafting(target);
             for (var e : map.entrySet()) {
-                Component name = e.getKey().getFullname(e.getValue());
+                Holder<Enchantment> enchantment = e.getKey();
+                int level = e.getIntValue();
+                Component name = Enchantment.getFullname(enchantment, level);
                 ret.add(name.copy()).text(" ");
             }
             return ret.component();
         }
 
         public static int getExperienceFromItem(ItemStack itemStack) {
-            return EnchantmentHelper.getEnchantments(itemStack)
-                    .entrySet()
+            ItemEnchantments enchantments = EnchantmentHelper.getEnchantmentsForCrafting(itemStack);
+            return enchantments.entrySet()
                     .stream()
-                    .map(entry -> Enchanting.getExperienceConsumption(entry.getKey(), entry.getValue()))
+                    .map(entry -> Enchanting.getExperienceConsumption(entry.getKey(), entry.getIntValue()))
                     .reduce(0, Integer::sum);
         }
     }
@@ -152,7 +160,12 @@ public class PrintEntries {
 
         @Override
         public int requiredInkAmount(ItemStack target) {
-            return WrittenBookItem.getPageCount(target) * CeiConfigs.SERVER.copyWrittenBookCostPerPage.get();
+            return getPageCount(target) * CeiConfigs.SERVER.copyWrittenBookCostPerPage.get();
+        }
+
+        private static int getPageCount(ItemStack stack) {
+            WrittenBookContent content = stack.get(DataComponents.WRITTEN_BOOK_CONTENT);
+            return content != null ? content.pages().size() : 0;
         }
 
         @Override
@@ -164,22 +177,33 @@ public class PrintEntries {
         public ItemStack print(ItemStack target, ItemStack material) {
             var ret = target.copy();
             if (!CeiConfigs.SERVER.copyingWrittenBookAlwaysGetOriginalVersion.get()) {
-				var tag = ret.getOrCreateTag();
-				int generation = tag.getInt("generation");
-				if (generation <= 1)
-					tag.putInt("generation", generation + 1);
-			}
+                WrittenBookContent content = ret.get(DataComponents.WRITTEN_BOOK_CONTENT);
+                if (content != null) {
+                    int generation = content.generation();
+                    if (generation <= 1) {
+                        // WrittenBookContent is a record, so we need to construct a new one
+                        WrittenBookContent newContent = new WrittenBookContent(
+                            content.title(),
+                            content.author(),
+                            generation + 1,
+                            content.pages(),
+                            content.resolved()
+                        );
+                        ret.set(DataComponents.WRITTEN_BOOK_CONTENT, newContent);
+                    }
+                }
+            }
             return ret;
         }
 
         @Override
         public boolean isTooExpensive(ItemStack target, int limit) {
-            return WrittenBookItem.getPageCount(target) * CeiConfigs.SERVER.copyWrittenBookCostPerPage.get() > limit;
+            return getPageCount(target) * CeiConfigs.SERVER.copyWrittenBookCostPerPage.get() > limit;
         }
 
         @Override
         public void addToGoggleTooltip(List<Component> tooltip, boolean isPlayerSneaking, ItemStack target) {
-            var page = WrittenBookItem.getPageCount(target);
+            var page = getPageCount(target);
             var b = LANG.builder()
                     .add(LANG.itemName(target)
                             .style(ChatFormatting.BLUE))
@@ -202,7 +226,7 @@ public class PrintEntries {
 
         @Override
         public MutableComponent getDisplaySourceContent(ItemStack target) {
-            var page = WrittenBookItem.getPageCount(target);
+            var page = getPageCount(target);
             return LANG.builder()
                     .add(LANG.itemName(target))
                     .text( " / ")
@@ -237,7 +261,7 @@ public class PrintEntries {
         @Override
         public ItemStack print(ItemStack target, ItemStack material) {
             if(material.is(Items.NAME_TAG)) return target.copy();
-            material.setHoverName(target.getHoverName());
+            material.set(DataComponents.CUSTOM_NAME, target.getHoverName());
             return material;
         }
 
@@ -289,7 +313,7 @@ public class PrintEntries {
 
         @Override
         public boolean valid(ItemStack target, ItemStack tested) {
-            return tested.is(target.getItem()) && !ItemStack.isSameItemSameTags(target, tested);
+            return tested.is(target.getItem()) && !ItemStack.isSameItemSameComponents(target, tested);
         }
 
         @Override
@@ -343,7 +367,7 @@ public class PrintEntries {
 
         @Override
         public boolean valid(ItemStack target, ItemStack tested) {
-            return tested.is(target.getItem()) && !ItemStack.isSameItemSameTags(target, tested);
+            return tested.is(target.getItem()) && !ItemStack.isSameItemSameComponents(target, tested);
         }
 
         @Override

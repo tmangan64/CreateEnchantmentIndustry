@@ -17,19 +17,19 @@ import plus.dragons.createenchantmentindustry.entry.CeiTags;
 @Implements(@Interface(iface = InkRenderingCamera.class, prefix = "enchantmentIndustry$"))
 public class CameraMixin {
 
-    @Shadow
+    @Shadow(remap = false)
     private BlockGetter level;
 
-    @Shadow
+    @Shadow(remap = false)
     @Final
     private BlockPos.MutableBlockPos blockPosition;
 
-    @Shadow
+    @Shadow(remap = false)
     private Vec3 position;
     @Unique
     private boolean enchantmentIndustry$inInk;
 
-    @Inject(method = "getFluidInCamera", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/BlockGetter;getFluidState(Lnet/minecraft/core/BlockPos;)Lnet/minecraft/world/level/material/FluidState;", ordinal = 0), cancellable = true)
+    @Inject(method = "getFluidInCamera", remap = false, at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/BlockGetter;getFluidState(Lnet/minecraft/core/BlockPos;)Lnet/minecraft/world/level/material/FluidState;", remap = false, ordinal = 0), cancellable = true)
     private void updateInk(CallbackInfoReturnable<FogType> cir) {
         FluidState fluidstate = this.level.getFluidState(this.blockPosition);
         if (fluidstate.is(CeiTags.FluidTag.INK.tag) && this.position.y < (double) ((float) this.blockPosition.getY() + fluidstate.getHeight(this.level, this.blockPosition))) {

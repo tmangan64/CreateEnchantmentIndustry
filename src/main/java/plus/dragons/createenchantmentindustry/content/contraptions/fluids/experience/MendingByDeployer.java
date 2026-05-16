@@ -1,16 +1,25 @@
 package plus.dragons.createenchantmentindustry.content.contraptions.fluids.experience;
 
+import net.minecraft.core.Holder;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.util.Mth;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.item.enchantment.EnchantmentHelper;
 import net.minecraft.world.item.enchantment.Enchantments;
+import net.minecraft.world.level.Level;
 
 import javax.annotation.Nullable;
+import java.util.Optional;
 
 public class MendingByDeployer {
-    
-    public static boolean canItemBeMended(ItemStack stack) {
-        return stack.isDamaged() && EnchantmentHelper.getItemEnchantmentLevel(Enchantments.MENDING, stack) > 0;
+
+    public static boolean canItemBeMended(Level level, ItemStack stack) {
+        if (!stack.isDamaged()) return false;
+        Optional<Holder.Reference<Enchantment>> mendingHolder = level.registryAccess()
+                .lookupOrThrow(Registries.ENCHANTMENT)
+                .get(Enchantments.MENDING);
+        return mendingHolder.isPresent() && EnchantmentHelper.getItemEnchantmentLevel(mendingHolder.get(), stack) > 0;
     }
     
     public static int getRequiredAmountForItem(ItemStack stack) {

@@ -2,6 +2,7 @@ package plus.dragons.createenchantmentindustry.dragonLibLegacy.lang;
 
 import joptsimple.internal.Strings;
 import net.minecraft.ChatFormatting;
+import net.minecraft.core.HolderLookup;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.world.entity.player.Player;
@@ -152,8 +153,8 @@ public class LangBuilder {
         return component().getString();
     }
     
-    public String json() {
-        return Component.Serializer.toJson(component());
+    public String json(HolderLookup.Provider provider) {
+        return Component.Serializer.toJson(component(), provider);
     }
     
     public void sendStatus(Player player) {

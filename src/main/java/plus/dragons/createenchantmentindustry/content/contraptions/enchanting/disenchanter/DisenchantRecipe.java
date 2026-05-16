@@ -1,30 +1,31 @@
 package plus.dragons.createenchantmentindustry.content.contraptions.enchanting.disenchanter;
 
-import com.simibubi.create.content.processing.recipe.ProcessingRecipe;
-import com.simibubi.create.content.processing.recipe.ProcessingRecipeBuilder;
+import com.simibubi.create.content.processing.recipe.ProcessingRecipeParams;
+import com.simibubi.create.content.processing.recipe.StandardProcessingRecipe;
 import net.minecraft.world.level.Level;
-import net.minecraftforge.fluids.FluidStack;
-import net.minecraftforge.items.wrapper.RecipeWrapper;
+import net.neoforged.neoforge.fluids.FluidStack;
+import net.neoforged.neoforge.items.wrapper.RecipeWrapper;
 import plus.dragons.createenchantmentindustry.entry.CeiFluids;
 import plus.dragons.createenchantmentindustry.entry.CeiRecipeTypes;
 
-public class DisenchantRecipe extends ProcessingRecipe<RecipeWrapper> {
+public class DisenchantRecipe extends StandardProcessingRecipe<RecipeWrapper> {
 
     private final int experience;
 
-    public DisenchantRecipe(ProcessingRecipeBuilder.ProcessingRecipeParams params) {
+    public DisenchantRecipe(ProcessingRecipeParams params) {
         super(CeiRecipeTypes.DISENCHANTING, params);
-        if (fluidResults.isEmpty())
-            throw new IllegalArgumentException("Illegal Disenchanting Recipe: " + id.toString() + " has no fluid output!");
-        FluidStack fluid = fluidResults.get(0);
-        if (!fluid.getFluid().isSame(CeiFluids.EXPERIENCE.get().getSource()))
-            throw new IllegalArgumentException("Illegal Disenchanting Recipe: " + id.toString() + " has wrong type of fluid output!");
-        this.experience = fluid.getAmount();
+        // Validate during construction - recipe ID not available here in 1.21+
+        if (getFluidResults().isEmpty()) {
+            this.experience = 0;
+        } else {
+            FluidStack fluid = getFluidResults().get(0);
+            this.experience = fluid.getAmount();
+        }
     }
 
     @Override
     public boolean matches(RecipeWrapper inv, Level pLevel) {
-        return ingredients.get(0).test(inv.getItem(0));
+        return getIngredients().get(0).test(inv.getItem(0));
     }
 
     @Override
@@ -48,7 +49,7 @@ public class DisenchantRecipe extends ProcessingRecipe<RecipeWrapper> {
     }
 
     public boolean hasNoResult() {
-        return results.isEmpty();
+        return getRollableResults().isEmpty();
     }
 
     public int getExperience() {

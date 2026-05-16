@@ -5,8 +5,6 @@ import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.projectile.ThrowableItemProjectile;
 import net.minecraft.world.item.Item;
-import net.minecraft.world.item.alchemy.PotionUtils;
-import net.minecraft.world.item.alchemy.Potions;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.HitResult;
 import plus.dragons.createenchantmentindustry.entry.CeiEntityTypes;
@@ -41,17 +39,20 @@ public class HyperExperienceBottle extends ThrowableItemProjectile {
     /**
      * Gets the amount of gravity to apply to the thrown entity with each tick.
      */
-    protected float getGravity() {
-        return 0.07F;
+    @Override
+    protected double getDefaultGravity() {
+        return 0.07;
     }
 
     /**
      * Called when this EntityFireball hits a block or entity.
      */
+    @Override
     protected void onHit(HitResult pResult) {
         super.onHit(pResult);
         if (this.level() instanceof ServerLevel) {
-            this.level().levelEvent(2002, this.blockPosition(), PotionUtils.getColor(Potions.WATER));
+            // 3694022 is the color for water potion (previously PotionUtils.getColor(Potions.WATER))
+            this.level().levelEvent(2002, this.blockPosition(), 3694022);
             int amount = 3 + this.level().random.nextInt(5) + this.level().random.nextInt(5);
             CeiFluids.HYPER_EXPERIENCE.get().drop((ServerLevel)this.level(), this.position(), amount);
             this.discard();

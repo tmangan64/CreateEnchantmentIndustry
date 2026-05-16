@@ -4,28 +4,28 @@ import com.simibubi.create.AllBlocks;
 import com.simibubi.create.AllItems;
 import com.simibubi.create.Create;
 import net.minecraft.Util;
-import net.minecraft.advancements.FrameType;
-import net.minecraft.advancements.critereon.ContextAwarePredicate;
+import net.minecraft.advancements.AdvancementType;
 import net.minecraft.advancements.critereon.InventoryChangeTrigger;
-import net.minecraft.advancements.critereon.MinMaxBounds;
+import net.minecraft.core.Holder;
+import net.minecraft.core.HolderLookup;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.item.enchantment.EnchantmentHelper;
 import net.minecraft.world.item.enchantment.Enchantments;
+import net.minecraft.world.item.enchantment.ItemEnchantments;
 import plus.dragons.createenchantmentindustry.dragonLibLegacy.advancement.AdvancementHolder;
-import plus.dragons.createenchantmentindustry.dragonLibLegacy.advancement.critereon.AccumulativeTrigger;
 import plus.dragons.createenchantmentindustry.entry.CeiBlocks;
 import plus.dragons.createenchantmentindustry.entry.CeiFluids;
 import plus.dragons.createenchantmentindustry.entry.CeiItems;
-
-import java.util.Map;
 
 import static plus.dragons.createenchantmentindustry.EnchantmentIndustry.ADVANCEMENT_FACTORY;
 
 public class CeiAdvancements {
     private static boolean registered = false;
     public static final AdvancementHolder
-    START = null,
+            START = null,
     // Root
     EXPERIENCED_ENGINEER = ADVANCEMENT_FACTORY.builder("experienced_engineer")
             .title("Experienced Engineer")
@@ -60,23 +60,23 @@ public class CeiAdvancements {
             .description("Make brand new copy from a tattered book")
             .icon(Items.WRITABLE_BOOK)
             .announce(true)
-            .frame(FrameType.GOAL)
+            .frame(AdvancementType.GOAL)
             .parent(COPIABLE_MYSTERY)
             .build(),
-     EMERGING_BRAND = ADVANCEMENT_FACTORY.builder("emerging_brand")
-             .title("Emerging Brand")
-             .description("Using the printer to name items")
-             .icon(Items.NAME_TAG)
-             .announce(true)
-             .parent(COPIABLE_MASTERPIECE)
-             .build(),
+    EMERGING_BRAND = ADVANCEMENT_FACTORY.builder("emerging_brand")
+            .title("Emerging Brand")
+            .description("Using the printer to name items")
+            .icon(Items.NAME_TAG)
+            .announce(true)
+            .parent(COPIABLE_MASTERPIECE)
+            .build(),
     GREAT_PUBLISHER = ADVANCEMENT_FACTORY.builder("great_publisher")
             .title("Great Publisher")
             .description("Copy 1000 books using Printer")
-            .externalTrigger("book_copied", new AccumulativeTrigger.TriggerInstance(CeiTriggers.BOOK_PRINTED.getId(), ContextAwarePredicate.ANY, MinMaxBounds.Ints.atLeast(1000)))
+            .externalTrigger("book_copied", CeiTriggers.BOOK_PRINTED.criterion(1000))
             .icon(CeiBlocks.PRINTER)
             .announce(true)
-            .frame(FrameType.CHALLENGE)
+            .frame(AdvancementType.CHALLENGE)
             .parent(RELIC_RESTORATION)
             .build(),
     EXPERIMENTAL = ADVANCEMENT_FACTORY.builder("experimental")
@@ -103,16 +103,16 @@ public class CeiAdvancements {
             .description("Break a Fluid Pipe and bathe in the leaked experience")
             .icon(AllBlocks.FLUID_PIPE)
             .announce(true)
-            .frame(FrameType.GOAL)
+            .frame(AdvancementType.GOAL)
             .parent(SPIRIT_TAKING)
             .build(),
     EXPERIENCED_RECYCLER = ADVANCEMENT_FACTORY.builder("experienced_recycler")
             .title("Experienced Recycler")
             .description("Recycle 1,000,000 mB of experience from Disenchanter")
             .icon(AllBlocks.COPPER_VALVE_HANDLE)
-            .externalTrigger("experience_recycled", new AccumulativeTrigger.TriggerInstance(CeiTriggers.DISENCHANTED.getId(), ContextAwarePredicate.ANY, MinMaxBounds.Ints.atLeast(1000000)))
+            .externalTrigger("experience_recycled", CeiTriggers.DISENCHANTED.criterion(1000000))
             .announce(true)
-            .frame(FrameType.CHALLENGE)
+            .frame(AdvancementType.CHALLENGE)
             .parent(A_SHOWER_EXPERIENCE)
             .build(),
     // Blaze Enchanter Branch
@@ -131,10 +131,7 @@ public class CeiAdvancements {
     ADDITIONAL_ORDER = ADVANCEMENT_FACTORY.builder("additional_order")
             .title("Additional Order")
             .description("Add a new enchantment to an enchanted item using Blaze Enchanter")
-            .icon(Util.make(
-                    new ItemStack(Items.GOLDEN_HELMET),
-                    stack -> EnchantmentHelper.setEnchantments(Map.of(Enchantments.ALL_DAMAGE_PROTECTION, 5), stack)
-            ))
+            .icon(Items.GOLDEN_HELMET)
             .parent(FIRST_ORDER)
             .build(),
     HYPOTHETICAL_EXTENSION = ADVANCEMENT_FACTORY.builder("hypothetical_extension")
@@ -144,12 +141,11 @@ public class CeiAdvancements {
             .parent(ADDITIONAL_ORDER)
             .build(),
     END = null;
-    
+
     public static void register() {
         if (!registered) {
             ADVANCEMENT_FACTORY.register();
         }
         registered = true;
     }
-    
 }

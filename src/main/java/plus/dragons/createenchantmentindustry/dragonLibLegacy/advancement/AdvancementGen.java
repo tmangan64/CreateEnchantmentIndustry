@@ -1,6 +1,8 @@
 package plus.dragons.createenchantmentindustry.dragonLibLegacy.advancement;
 
 import com.google.common.collect.Sets;
+import com.google.gson.JsonElement;
+import com.mojang.serialization.JsonOps;
 import net.minecraft.advancements.Advancement;
 import net.minecraft.data.CachedOutput;
 import net.minecraft.data.DataGenerator;
@@ -31,14 +33,16 @@ class AdvancementGen implements DataProvider {
 
         return CompletableFuture.runAsync(() -> {
             Set<ResourceLocation> set = Sets.newHashSet();
-            Consumer<Advancement> consumer = advancement -> {
-                if (!set.add(advancement.getId()))
-                    throw new IllegalStateException("Duplicate advancement " + advancement.getId());
+            Consumer<net.minecraft.advancements.AdvancementHolder> consumer = advancementHolder -> {
+                if (!set.add(advancementHolder.id()))
+                    throw new IllegalStateException("Duplicate advancement " + advancementHolder.id());
                 Path advancementPath = path.resolve("data/"
-                        + advancement.getId().getNamespace() + "/advancements/"
-                        + advancement.getId().getPath() + ".json"
+                        + advancementHolder.id().getNamespace() + "/advancements/"
+                        + advancementHolder.id().getPath() + ".json"
                 );
-                DataProvider.saveStable(cache, advancement.deconstruct().serializeToJson(), advancementPath);
+                JsonElement json = Advancement.CODEC.encodeStart(JsonOps.INSTANCE, advancementHolder.value())
+                        .getOrThrow(error -> new IllegalStateException("Failed to encode advancement: " + error));
+                DataProvider.saveStable(cache, json, advancementPath);
             };
             var advancements = AdvancementHolder.ENTRIES_MAP.get(modid);
             if (advancements != null)

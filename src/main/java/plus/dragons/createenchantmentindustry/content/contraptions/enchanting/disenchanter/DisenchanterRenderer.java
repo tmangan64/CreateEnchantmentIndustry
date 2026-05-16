@@ -6,7 +6,7 @@ import com.simibubi.create.foundation.blockEntity.behaviour.fluid.SmartFluidTank
 import com.simibubi.create.foundation.blockEntity.renderer.SmartBlockEntityRenderer;
 import com.simibubi.create.foundation.render.ShadowRenderHelper;
 import dev.engine_room.flywheel.lib.transform.TransformStack;
-import net.createmod.catnip.platform.ForgeCatnipServices;
+import net.createmod.catnip.platform.CatnipServices;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider;
@@ -17,7 +17,8 @@ import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
-import net.minecraftforge.fluids.FluidStack;
+import net.minecraft.world.level.material.FluidState;
+import net.neoforged.neoforge.fluids.FluidStack;
 
 import java.util.Random;
 
@@ -121,7 +122,8 @@ public class DisenchanterRenderer extends SmartBlockEntityRenderer<DisenchanterB
             float yOffset = (7 / 16f) * level;
             ps.pushPose();
             ps.translate(0, yOffset, 0);
-            ForgeCatnipServices.FLUID_RENDERER.renderFluidBox(tankFluidStack,
+            FluidState fluidState = tankFluidStack.getFluid().defaultFluidState();
+            CatnipServices.FLUID_RENDERER.renderFluidBox(fluidState,
                     min, yMin - yOffset, min, max, yMin, max, buffer, ps, light,
                     true, false);
             ps.popPose();
@@ -155,7 +157,8 @@ public class DisenchanterRenderer extends SmartBlockEntityRenderer<DisenchanterB
             itemPosition.add(0, 0.005, 0);
         }
         AABB bb = new AABB(itemPosition.add(0, 13 / 16d, 0), itemPosition.add(0, 1 / 4d, 0)).inflate(radius / 32f);
-        ForgeCatnipServices.FLUID_RENDERER.renderFluidBox(xp,
+        FluidState xpFluidState = xp.getFluid().defaultFluidState();
+        CatnipServices.FLUID_RENDERER.renderFluidBox(xpFluidState,
                 (float) bb.minX, (float) bb.minY, (float) bb.minZ,
                 (float) bb.maxX, (float) bb.maxY, (float) bb.maxZ,
                 buffer, ps, light, true, false

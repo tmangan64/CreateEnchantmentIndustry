@@ -1,19 +1,21 @@
 package plus.dragons.createenchantmentindustry.content.contraptions.enchanting.enchanter;
 
 import net.createmod.catnip.data.Pair;
+import net.minecraft.core.Holder;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.item.enchantment.EnchantmentHelper;
+import net.minecraft.world.item.enchantment.ItemEnchantments;
 import plus.dragons.createenchantmentindustry.EnchantmentIndustry;
 import plus.dragons.createenchantmentindustry.entry.CeiItems;
 
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.function.Predicate;
 
 public class Enchanting {
@@ -36,7 +38,7 @@ public class Enchanting {
         } else
             throw new RuntimeException("TargetItem is not an enchanting guide for blaze!");
     }
-    
+
     @Nullable
     public static EnchantmentEntry getValidEnchantment(ItemStack itemStack, ItemStack targetItem, boolean hyper) {
 
@@ -50,34 +52,33 @@ public class Enchanting {
         var entry = getTargetEnchantment(targetItem, hyper);
         if (entry == null || !entry.valid())
             return null;
-        var enchantment = entry.getFirst();
+        var enchantmentHolder = entry.getFirst();
 
         ItemStack toCheck = itemStack.copy();
-        Map<Enchantment, Integer> modified = EnchantmentHelper.getEnchantments(toCheck);
+        ItemEnchantments enchantments = EnchantmentHelper.getEnchantmentsForCrafting(toCheck);
 
-        if (modified.containsKey(enchantment) && modified.get(enchantment) >= entry.getSecond()) {
+        // Check if item already has this enchantment at the same or higher level
+        int currentLevel = enchantments.getLevel(enchantmentHolder);
+        if (currentLevel >= entry.getSecond()) {
             return null;
         }
 
-        // If the item already has the enchantment remove it to pass the checks
-        modified.remove(enchantment);
-        EnchantmentHelper.setEnchantments(modified, toCheck);
-
-        if (!enchantment.canEnchant(toCheck))
+        // Check if the enchantment can be applied to this item
+        if (!enchantmentHolder.value().canEnchant(toCheck))
             return null;
-        for (var e : modified.entrySet()) {
-            if (!e.getKey().isCompatibleWith(enchantment))
+
+        // Check compatibility with existing enchantments
+        for (var e : enchantments.entrySet()) {
+            if (!Enchantment.areCompatible(e.getKey(), enchantmentHolder))
                 return null;
         }
         return entry;
     }
 
-    public static void enchantItem(ItemStack itemStack, Pair<Enchantment, Integer> enchantment) {
-        var map = EnchantmentHelper.getEnchantments(itemStack);
-        map.put(enchantment.getFirst(), enchantment.getSecond());
-        EnchantmentHelper.setEnchantments(map, itemStack);
+    public static void enchantItem(ItemStack itemStack, Pair<Holder<Enchantment>, Integer> enchantment) {
+        itemStack.enchant(enchantment.getFirst(), enchantment.getSecond());
     }
-    
+
     public static int expPointFromLevel(int level) {
         if (level > 31) {
             return (int) (4.5 * level * level - 162.5 * level + 2220);
@@ -87,7 +88,7 @@ public class Enchanting {
                 : level * level + 6 * level;
         }
     }
-    
+
     public static int expPointForNextLevel(int level) {
         if (level > 30) {
             return 9 * level - 158;
@@ -98,18 +99,19 @@ public class Enchanting {
         }
     }
 
-    public static int rarityLevel(Enchantment.Rarity rarity) {
-        return switch(rarity) {
-            case COMMON -> 1;
-            case UNCOMMON -> 2;
-            case RARE -> 3;
-            case VERY_RARE -> 4;
-        };
-    }
-
-    public static int getExperienceConsumption(Enchantment enchantment, int level) {
-        int xpLevel = enchantment.getMinCost(level) + level * rarityLevel(enchantment.getRarity());
+    public static int getExperienceConsumption(Holder<Enchantment> enchantment, int level) {
+        Enchantment ench = enchantment.value();
+        int xpLevel = ench.getMinCost(level) + level * getAnvilCost(ench);
         return expPointForNextLevel(xpLevel);
     }
-    
+
+    // In 1.21, Enchantment.Rarity was replaced with anvilCost
+    private static int getAnvilCost(Enchantment enchantment) {
+        int cost = enchantment.getAnvilCost();
+        if (cost <= 1) return 1;
+        if (cost <= 2) return 2;
+        if (cost <= 4) return 3;
+        return 4;
+    }
+
 }

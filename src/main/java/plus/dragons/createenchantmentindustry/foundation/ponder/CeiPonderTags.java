@@ -2,7 +2,7 @@ package plus.dragons.createenchantmentindustry.foundation.ponder;
 
 import com.simibubi.create.AllBlocks;
 import com.simibubi.create.AllItems;
-import com.tterrag.registrate.util.entry.RegistryEntry;
+import com.tterrag.registrate.util.entry.ItemProviderEntry;
 import net.createmod.ponder.api.registration.PonderTagRegistrationHelper;
 import net.minecraft.resources.ResourceLocation;
 import plus.dragons.createenchantmentindustry.EnchantmentIndustry;
@@ -21,7 +21,7 @@ public class CeiPonderTags {
                 title("Experience Related").
                 description("Items and Components related to experience").register();
 
-        PonderTagRegistrationHelper<RegistryEntry<?>> HELPER = helper.withKeyFunction(RegistryEntry::getId);
+        PonderTagRegistrationHelper<ItemProviderEntry<?, ?>> HELPER = helper.withKeyFunction(ItemProviderEntry::getId);
         HELPER.addToTag(EXPERIENCE)
                 .add(CeiBlocks.DISENCHANTER)
                 .add(CeiBlocks.PRINTER)
